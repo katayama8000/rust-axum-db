@@ -1,4 +1,4 @@
-use axum::{extract::State, routing::get, Router};
+use axum::{extract::State, routing::get, routing::post, Router};
 use sqlx::{mysql::MySqlPoolOptions, Pool, Row};
 
 #[derive(Clone)]
@@ -7,7 +7,9 @@ struct AppState {
 }
 
 fn router() -> Router<AppState> {
-    Router::new().route("/", get(handle_get))
+    Router::new()
+        .route("/", get(handle_get_all_todos))
+        .route("/create", post(handle_create_todo))
 }
 
 async fn connect() -> Result<Pool<sqlx::MySql>, sqlx::Error> {
@@ -31,16 +33,10 @@ async fn main() -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-async fn handle_get(State(state): State<AppState>) {
+async fn handle_get_all_todos(State(state): State<AppState>) {
     println!("GET /");
-    // insert some data
-    sqlx::query("INSERT INTO mytable (name) VALUES (?)")
-        .bind("World")
-        .execute(&state.pool)
-        .await
-        .unwrap();
     // fetch all
-    let rows = sqlx::query("SELECT * FROM mytable")
+    let rows = sqlx::query("SELECT * FROM todotable")
         .fetch_all(&state.pool)
         .await
         .unwrap();
@@ -49,6 +45,17 @@ async fn handle_get(State(state): State<AppState>) {
     for row in rows {
         let id: i32 = row.get("id");
         let name: String = row.get("name");
-        println!("id: {}, name: {}", id, name);
+        let is_done: bool = row.get("is_done");
+        println!("id: {}, name: {}, is_done: {}", id, name, is_done);
     }
+}
+
+async fn handle_create_todo(State(state): State<AppState>) {
+    println!("POST /create");
+    // insert some data
+    sqlx::query("INSERT INTO todotable (name) VALUES (?)")
+        .bind("go to the gym")
+        .execute(&state.pool)
+        .await
+        .unwrap();
 }
