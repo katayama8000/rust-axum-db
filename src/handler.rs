@@ -97,12 +97,12 @@ pub async fn handle_sign_up(
     {
         Ok(_) => {
             // Success: HTTP 201 Created
-            (StatusCode::CREATED, "User created successfully")
+            (StatusCode::CREATED, "User created successfully").into_response()
         }
         Err(e) => {
             // Failure: HTTP 500 Internal Server Error with error message
             eprintln!("Failed to create user: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user")
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user").into_response()
         }
     }
 }
