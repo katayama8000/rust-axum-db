@@ -1,4 +1,7 @@
-use axum::extract::{Path, State};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use serde::Deserialize;
 use sqlx::Row;
 
@@ -70,4 +73,51 @@ pub async fn handle_delete_todo(State(state): State<AppState>, Path(param): Path
         .execute(&state.pool)
         .await
         .unwrap();
+}
+
+#[derive(Debug, Deserialize)]
+pub struct User {
+    pub name: String,
+    pub password: String,
+}
+
+pub async fn handle_sign_up(State(state): State<AppState>, Json(user): Json<User>) {
+    println!("POST /signUp");
+    println!("name: {}, password: {}", user.name, user.password);
+    // insert some data
+    sqlx::query("INSERT INTO usertable (name, password) VALUES (?, ?)")
+        .bind(user.name)
+        .bind(user.password)
+        .execute(&state.pool)
+        .await
+        .unwrap();
+}
+
+pub async fn handle_sign_in(State(state): State<AppState>, Json(user): Json<User>) {
+    println!("POST /signIn");
+    println!("name: {}, password: {}", user.name, user.password);
+    // fetch all
+    let rows = sqlx::query("SELECT * FROM usertable")
+        .fetch_all(&state.pool)
+        .await
+        .unwrap();
+    println!("Got {} rows", rows.len());
+    // print all
+    for row in rows {
+        let name: String = row.get("name");
+        let password: String = row.get("password");
+        println!("name: {}, password: {}", name, password);
+    }
+
+    // check if user exists
+    let row = sqlx::query("SELECT * FROM usertable WHERE name = ? AND password = ?")
+        .bind(user.name)
+        .bind(user.password)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap();
+
+    let name: String = row.get("name");
+    let password: String = row.get("password");
+    println!("name: {}, password: {}", name, password);
 }
