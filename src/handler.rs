@@ -1,5 +1,7 @@
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
     Json,
 };
 use serde::Deserialize;
@@ -80,44 +82,65 @@ pub struct User {
     pub name: String,
     pub password: String,
 }
-
-pub async fn handle_sign_up(State(state): State<AppState>, Json(user): Json<User>) {
+pub async fn handle_sign_up(
+    State(state): State<AppState>,
+    Json(user): Json<User>,
+) -> impl IntoResponse {
     println!("POST /signUp");
     println!("name: {}, password: {}", user.name, user.password);
-    // insert some data
-    sqlx::query("INSERT INTO usertable (name, password) VALUES (?, ?)")
-        .bind(user.name)
-        .bind(user.password)
+    // insert data
+    match sqlx::query("INSERT INTO usertable (name, password) VALUES (?, ?)")
+        .bind(&user.name)
+        .bind(&user.password)
         .execute(&state.pool)
         .await
-        .unwrap();
+    {
+        Ok(_) => {
+            // Success: HTTP 201 Created
+            (StatusCode::CREATED, "User created successfully")
+        }
+        Err(e) => {
+            // Failure: HTTP 500 Internal Server Error with error message
+            eprintln!("Failed to create user: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user")
+        }
+    }
 }
 
-pub async fn handle_sign_in(State(state): State<AppState>, Json(user): Json<User>) {
+pub async fn handle_sign_in(
+    State(state): State<AppState>,
+    Json(user): Json<User>,
+) -> impl IntoResponse {
     println!("POST /signIn");
     println!("name: {}, password: {}", user.name, user.password);
-    // fetch all
-    let rows = sqlx::query("SELECT * FROM usertable")
+
+    // fetch all users from database
+    let rows = match sqlx::query("SELECT * FROM usertable")
         .fetch_all(&state.pool)
         .await
-        .unwrap();
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            eprintln!("Failed to fetch users: {:?}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch users").into_response();
+        }
+    };
     println!("Got {} rows", rows.len());
-    // print all
+
+    // search for the user
+    let mut user_found = false;
     for row in rows {
         let name: String = row.get("name");
         let password: String = row.get("password");
-        println!("name: {}, password: {}", name, password);
+        if name == user.name && password == user.password {
+            user_found = true;
+            break;
+        }
     }
 
-    // check if user exists
-    let row = sqlx::query("SELECT * FROM usertable WHERE name = ? AND password = ?")
-        .bind(user.name)
-        .bind(user.password)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap();
-
-    let name: String = row.get("name");
-    let password: String = row.get("password");
-    println!("name: {}, password: {}", name, password);
+    if user_found {
+        (StatusCode::OK, "User found").into_response()
+    } else {
+        (StatusCode::UNAUTHORIZED, "User not found").into_response()
+    }
 }
