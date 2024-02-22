@@ -1,4 +1,9 @@
-use axum::extract::{Path, State};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 use serde::Deserialize;
 use sqlx::Row;
 
@@ -70,4 +75,72 @@ pub async fn handle_delete_todo(State(state): State<AppState>, Path(param): Path
         .execute(&state.pool)
         .await
         .unwrap();
+}
+
+#[derive(Debug, Deserialize)]
+pub struct User {
+    pub name: String,
+    pub password: String,
+}
+pub async fn handle_sign_up(
+    State(state): State<AppState>,
+    Json(user): Json<User>,
+) -> impl IntoResponse {
+    println!("POST /signUp");
+    println!("name: {}, password: {}", user.name, user.password);
+    // insert data
+    match sqlx::query("INSERT INTO usertable (name, password) VALUES (?, ?)")
+        .bind(&user.name)
+        .bind(&user.password)
+        .execute(&state.pool)
+        .await
+    {
+        Ok(_) => {
+            // Success: HTTP 201 Created
+            (StatusCode::CREATED, "User created successfully").into_response()
+        }
+        Err(e) => {
+            // Failure: HTTP 500 Internal Server Error with error message
+            eprintln!("Failed to create user: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user").into_response()
+        }
+    }
+}
+
+pub async fn handle_sign_in(
+    State(state): State<AppState>,
+    Json(user): Json<User>,
+) -> impl IntoResponse {
+    println!("POST /signIn");
+    println!("name: {}, password: {}", user.name, user.password);
+
+    // fetch all users from database
+    let rows = match sqlx::query("SELECT * FROM usertable")
+        .fetch_all(&state.pool)
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            eprintln!("Failed to fetch users: {:?}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch users").into_response();
+        }
+    };
+    println!("Got {} rows", rows.len());
+
+    // search for the user
+    let mut user_found = false;
+    for row in rows {
+        let name: String = row.get("name");
+        let password: String = row.get("password");
+        if name == user.name && password == user.password {
+            user_found = true;
+            break;
+        }
+    }
+
+    if user_found {
+        (StatusCode::OK, "User found").into_response()
+    } else {
+        (StatusCode::UNAUTHORIZED, "User not found").into_response()
+    }
 }
