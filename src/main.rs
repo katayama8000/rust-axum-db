@@ -12,6 +12,7 @@ use crate::handler::{
 };
 
 mod handler;
+mod jwt;
 
 #[derive(Clone)]
 struct AppState {
