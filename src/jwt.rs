@@ -1,11 +1,12 @@
-use axum::http::HeaderMap;
+use axum::http::{header::AUTHORIZATION, HeaderMap};
 use jsonwebtoken::{DecodingKey, EncodingKey, TokenData};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::handler::User;
 
+// should be in .env
 pub const JWT_SECRET_KEY: &str = "app-secret";
-pub const JWT_HEADER_KEY: &str = "Authorization";
+pub const _JWT_HEADER_KEY: &str = "Authorization";
 pub const _JWT_COOKIE_KEY: &str = "Authorization";
 
 // build Claims
@@ -46,7 +47,6 @@ pub trait JwtDecoder<T: DeserializeOwned, E, R> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-
 pub struct ApiClaims {
     iat: i64,          // issued at
     exp: i64,          // expiration
@@ -86,7 +86,7 @@ impl ApiJwt {
 
 impl JwtDecoder<ApiClaims, String, HeaderMap> for ApiJwt {
     fn parse_header(header: &HeaderMap) -> Result<String, String> {
-        let header_value = header.get(JWT_HEADER_KEY);
+        let header_value = header.get(AUTHORIZATION);
 
         let token = header_value.unwrap();
         let mut split_token = token.to_str().unwrap().split_whitespace();
@@ -105,15 +105,3 @@ impl JwtDecoder<ApiClaims, String, HeaderMap> for ApiJwt {
         }
     }
 }
-
-// impl ApiClaims {
-//     pub fn from_request(req: &http::Request<String>) -> Result<Self, http::StatusCode> {
-//         let request = req.clone();
-//         let jwt = ApiJwt::default();
-//         let token = jwt.parse_header(&request).unwrap();
-//         match jwt.decode(&token) {
-//             Ok(token_data) => Ok(token_data.claims),
-//             Err(_) => Err(http::StatusCode::UNAUTHORIZED),
-//         }
-//     }
-// }
