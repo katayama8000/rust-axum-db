@@ -11,6 +11,16 @@ pub const JWT_SECRET_KEY: &str = "app-secret";
 pub const _JWT_HEADER_KEY: &str = "Authorization";
 pub const _JWT_COOKIE_KEY: &str = "Authorization";
 
+// Custom error enum
+#[derive(Debug)]
+pub enum CustomErr {
+    InvalidHeader,
+    NoAuthorizationHeader,
+    InvalidSchemaType,
+    NoJwtTokenFound,
+    JwtError(JwtError),
+}
+
 // build Claims
 pub trait ClaimsGenerator<T> {
     fn generate_claims(_: &T) -> Self;
@@ -18,9 +28,9 @@ pub trait ClaimsGenerator<T> {
 
 // decode token
 pub trait JwtDecoder<T: DeserializeOwned> {
-    fn parse_header(request: &HeaderMap) -> Result<String, String>;
+    fn parse_header(request: &HeaderMap) -> Result<String, CustomErr>;
     // check token and decode
-    fn decode(&self, token: &str) -> Result<TokenData<T>, JwtError>;
+    fn decode(&self, token: &str) -> Result<TokenData<T>, CustomErr>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,30 +73,31 @@ impl ApiJwt {
 }
 
 impl JwtDecoder<ApiClaims> for ApiJwt {
-    fn parse_header(header: &HeaderMap) -> Result<String, String> {
+    fn parse_header(header: &HeaderMap) -> Result<String, CustomErr> {
         match header.get(AUTHORIZATION) {
             Some(token) => {
                 let mut split_token = token
                     .to_str()
-                    .map_err(|_| "Invalid header")?
+                    .map_err(|_| CustomErr::InvalidHeader)?
                     .split_whitespace();
                 match split_token.next() {
                     Some(schema_type) if schema_type == "Bearer" => match split_token.next() {
                         Some(jwt_token) => Ok(jwt_token.to_string()),
-                        None => Err("No JWT token found".to_string()),
+                        None => Err(CustomErr::NoJwtTokenFound),
                     },
-                    Some(_) | None => Err("Invalid schema type".to_string()),
+                    Some(_) | None => Err(CustomErr::InvalidSchemaType),
                 }
             }
-            None => Err("No Authorization header found".to_string()),
+            None => Err(CustomErr::NoAuthorizationHeader),
         }
     }
 
-    fn decode(&self, token: &str) -> Result<TokenData<ApiClaims>, JwtError> {
+    fn decode(&self, token: &str) -> Result<TokenData<ApiClaims>, CustomErr> {
         decode::<ApiClaims>(
             token,
             &DecodingKey::from_secret(JWT_SECRET_KEY.as_ref()),
             &Validation::default(),
         )
+        .map_err(CustomErr::JwtError)
     }
 }
