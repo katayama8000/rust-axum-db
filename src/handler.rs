@@ -1,8 +1,10 @@
 use axum::{
     extract::{Json, Path, State},
     http::{HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
 };
+
+use serde_json::json;
 
 use serde::Deserialize;
 use sqlx::Row;
@@ -231,5 +233,27 @@ pub async fn handle_sign_in(
         (StatusCode::OK).into_response()
     } else {
         (StatusCode::UNAUTHORIZED).into_response()
+    }
+}
+
+pub enum AuthError {
+    InvalidToken,
+    WrongCredentials,
+    TokenCreation,
+    MissingCredentials,
+}
+
+impl IntoResponse for AuthError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials"),
+            AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials"),
+            AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
+            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
+        };
+        let body = Json(json!({
+            "error": error_message,
+        }));
+        (status, body).into_response()
     }
 }
