@@ -3,6 +3,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
+
 use serde::Deserialize;
 use sqlx::Row;
 
@@ -185,8 +186,21 @@ pub async fn handle_sign_in(
     println!("name: {}, password: {}", user.name, user.password);
 
     // decode token
-    let token = ApiJwt::parse_header(&headers).unwrap();
-    let token_data = ApiJwt.decode(&token).unwrap();
+    let token = match ApiJwt::parse_header(&headers) {
+        Ok(token) => token,
+        Err(err) => {
+            eprintln!("Failed to parse token: {:?}", err);
+            return (StatusCode::UNAUTHORIZED, "Invalid token").into_response();
+        }
+    };
+
+    let token_data = match ApiJwt.decode(&token) {
+        Ok(token_data) => token_data,
+        Err(err) => {
+            eprintln!("Failed to decode token: {:?}", err);
+            return (StatusCode::UNAUTHORIZED, "Invalid token").into_response();
+        }
+    };
     println!("token_data: {:?}", token_data);
 
     // fetch all users from database
