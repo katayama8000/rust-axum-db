@@ -20,13 +20,7 @@ pub trait ClaimsGenerator<T> {
 pub trait JwtDecoder<T: DeserializeOwned> {
     fn parse_header(request: &HeaderMap) -> Result<String, String>;
     // check token and decode
-    fn decode(&self, token: &str) -> Result<TokenData<T>, JwtError> {
-        decode::<T>(
-            token,
-            &DecodingKey::from_secret(JWT_SECRET_KEY.as_ref()),
-            &Validation::default(),
-        )
-    }
+    fn decode(&self, token: &str) -> Result<TokenData<T>, JwtError>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,7 +47,7 @@ impl ClaimsGenerator<User> for ApiClaims {
 pub struct ApiJwt;
 
 impl ApiJwt {
-    pub fn encode<T: Serialize>(claims: T) -> String {
+    pub fn encode<T: Serialize>(claims: T) -> Result<String, JwtError> {
         let header = Header {
             typ: Some("JWT".into()),
             alg: Algorithm::HS256,
@@ -65,7 +59,6 @@ impl ApiJwt {
             &claims,
             &EncodingKey::from_secret(JWT_SECRET_KEY.as_ref()),
         )
-        .unwrap()
     }
 }
 
@@ -73,7 +66,10 @@ impl JwtDecoder<ApiClaims> for ApiJwt {
     fn parse_header(header: &HeaderMap) -> Result<String, String> {
         match header.get(AUTHORIZATION) {
             Some(token) => {
-                let mut split_token = token.to_str().unwrap().split_whitespace();
+                let mut split_token = token
+                    .to_str()
+                    .map_err(|_| "Invalid header")?
+                    .split_whitespace();
                 match split_token.next() {
                     Some(schema_type) if schema_type == "Bearer" => match split_token.next() {
                         Some(jwt_token) => Ok(jwt_token.to_string()),
@@ -84,5 +80,13 @@ impl JwtDecoder<ApiClaims> for ApiJwt {
             }
             None => Err("No Authorization header found".to_string()),
         }
+    }
+
+    fn decode(&self, token: &str) -> Result<TokenData<ApiClaims>, JwtError> {
+        decode::<ApiClaims>(
+            token,
+            &DecodingKey::from_secret(JWT_SECRET_KEY.as_ref()),
+            &Validation::default(),
+        )
     }
 }

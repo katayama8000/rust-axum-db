@@ -167,7 +167,7 @@ pub async fn handle_sign_up(
                 password: user.password.clone(),
             });
             let token = ApiJwt::encode(claims); // Generate JWT token
-            (StatusCode::CREATED, token.to_string()).into_response()
+            (StatusCode::CREATED, token.unwrap().to_string()).into_response()
         }
         Err(e) => {
             eprintln!("Failed to create user: {:?}", e);
