@@ -1,13 +1,13 @@
 use axum::{
     extract::{Json, Path, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
 use serde::Deserialize;
 use sqlx::Row;
 
 use crate::{
-    jwt::{ApiClaims, ApiJwt, ClaimsGenerator},
+    jwt::{ApiClaims, ApiJwt, ClaimsGenerator, JwtDecoder},
     AppState,
 };
 
@@ -183,6 +183,11 @@ pub async fn handle_sign_in(
 ) -> impl IntoResponse {
     println!("POST /signIn");
     println!("name: {}, password: {}", user.name, user.password);
+
+    // decode token
+    let token = ApiJwt::parse_header(&headers).unwrap();
+    let token_data = ApiJwt.decode(&token).unwrap();
+    println!("token_data: {:?}", token_data);
 
     // fetch all users from database
     let rows = match sqlx::query("SELECT * FROM usertable")

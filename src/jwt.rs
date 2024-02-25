@@ -1,4 +1,4 @@
-use axum::http::{self};
+use axum::http::HeaderMap;
 use jsonwebtoken::{DecodingKey, EncodingKey, TokenData};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use crate::handler::User;
 
 pub const JWT_SECRET_KEY: &str = "app-secret";
 pub const JWT_HEADER_KEY: &str = "Authorization";
-pub const JWT_COOKIE_KEY: &str = "Authorization";
+pub const _JWT_COOKIE_KEY: &str = "Authorization";
 
 // build Claims
 pub trait ClaimsGenerator<T> {
@@ -31,7 +31,7 @@ pub trait JwtEncoder {
 
 // decode token
 pub trait JwtDecoder<T: DeserializeOwned, E, R> {
-    fn parse_header(&self, request: &R) -> Result<String, E>;
+    fn parse_header(request: &R) -> Result<String, E>;
     // check token and decode
     fn decode(&self, token: &str) -> Result<TokenData<T>, jsonwebtoken::errors::Error> {
         match jsonwebtoken::decode::<T>(
@@ -84,16 +84,12 @@ impl ApiJwt {
     }
 }
 
-impl JwtDecoder<ApiClaims, String, http::Request<String>> for ApiJwt {
-    fn parse_header(&self, request: &http::Request<String>) -> Result<String, String> {
-        // get token from header
-        let header_value = match request.headers().get(JWT_HEADER_KEY) {
-            Some(token) => Ok(token.to_str().unwrap().to_string()),
-            None => Err("No token found".to_string()),
-        };
+impl JwtDecoder<ApiClaims, String, HeaderMap> for ApiJwt {
+    fn parse_header(header: &HeaderMap) -> Result<String, String> {
+        let header_value = header.get(JWT_HEADER_KEY);
 
         let token = header_value.unwrap();
-        let mut split_token = token.split_whitespace();
+        let mut split_token = token.to_str().unwrap().split_whitespace();
         match split_token.next() {
             Some(schema_type) => {
                 if schema_type != "Bearer" {
