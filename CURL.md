@@ -19,6 +19,13 @@ curl -X POST http://127.0.0.1:3333/signUp -H "Content-Type: application/json" -d
 ```bash
 curl -X POST http://127.0.0.1:3333/signIn -H "Content-Type: application/json" -d '{"name": "example_user", "password": "example_password"}'
 ```
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MDg4NDAyMDUsImV4cCI6MTcwOTQ0NTAwNSwic3ViIjoiYXV0aCIsInVzZXJfbmFtZSI6ImV4YW1wbGVfdXNlciJ9.qha3H2yiZFWTi3nBjKD-dI7Ts8tPMIkhqWDvp1Jy7bw" \
+  -d '{"name": "example_user", "password": "example_password"}' \
+  http://127.0.0.1.3333/signIn
+```
 
 
 

@@ -59,6 +59,7 @@ dependencies = [
  "chrono",
  "jsonwebtoken",
  "serde",
+ "serde_json",
  "sqlx",
  "tokio",
 ]

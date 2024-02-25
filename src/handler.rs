@@ -1,12 +1,15 @@
 use axum::{
     extract::{Json, Path, State},
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
 };
 use serde::Deserialize;
 use sqlx::Row;
 
-use crate::AppState;
+use crate::{
+    jwt::{ApiClaims, ApiJwt, ClaimsGenerator},
+    AppState,
+};
 
 pub async fn handle_get_all_todos(State(state): State<AppState>) -> impl IntoResponse {
     println!("GET /");
@@ -157,16 +160,25 @@ pub async fn handle_sign_up(
         .execute(&state.pool)
         .await
     {
-        Ok(_) => StatusCode::CREATED,
+        Ok(_) => {
+            // Generate JWT
+            let claims = ApiClaims::generate_claims(&User {
+                name: user.name.clone(),
+                password: user.password.clone(),
+            });
+            let token = ApiJwt::encode(claims); // Generate JWT token
+            (StatusCode::CREATED, token.to_string()).into_response()
+        }
         Err(e) => {
             eprintln!("Failed to create user: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user").into_response()
         }
     }
 }
 
 pub async fn handle_sign_in(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(user): Json<User>,
 ) -> impl IntoResponse {
     println!("POST /signIn");
